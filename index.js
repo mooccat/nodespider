@@ -6,14 +6,17 @@ var async = require('async');
 
 var sourceUrl = "http://lengxiaohua.com/new";
 var baseUrl = "http://lengxiaohua.com/joke/";
-var urls = new Map();
+var urls = [];
 var count = 0;
-
+var num = 0;
 
 var async = require('async');
 
 async.waterfall([getMaxPage,getQuery],function(err,result){
-	console.log(result);
+	console.log(urls);
+	async.mapLimit(urls,4,getSource,function(err,res){
+		console.log(res);
+	});
 });
 
 function getMaxPage(cb){
@@ -32,8 +35,8 @@ function getQuery(maxPage,cb){
 		var query = {"page_num":i+1};
 		querys.push(query);
 	}
-	async.mapLimit(querys,20,getUrl,function(err,result){
-		cb(null,result);
+	async.mapLimit(querys,5,getUrl,function(err,result){
+		cb(null,"get query done");
 	});
 }
 
@@ -46,11 +49,11 @@ function getUrl(query,cb){
 		.end(function(err,res){
 			if(res != undefined && res.status==200){
 				var $ = cheerio.load(res.text);
-				for(var i=0;i<2;i++){
+				for(var i=0;i<$(".joke_li").length;i++){
 					var joker_num = $(".joke_li")[i].attribs.id.replace(/[^0-9]/ig,"");
 					// var url = baseUrl + joker_num;
-					urls.set(joker_num,false);
-
+					// urls.set(joker_num,false);
+					urls.push(joker_num);
 					// count++;
 					// console.log("现在正在抓取："+url+";"+"并发数："+count);
 					// superagent
@@ -64,14 +67,13 @@ function getUrl(query,cb){
 					// 	})
 				}
 				count--;
-				cb(null,urls);
+				cb(null,"get url done");
 			}	
 		})
 }
 
 
 function getSource(urlFragment,cb){
-	if(urls.get(urlFragment) == false){
 			var url = baseUrl + urlFragment;
 			superagent
 				.get(url)
@@ -79,9 +81,16 @@ function getSource(urlFragment,cb){
 					var $ = cheerio.load(res.text,{decodeEntities: false});
 					var id = "#joke_content_"+urlFragment;
 					console.log($(id).children().html());
-					urls.set(urlFragment,true);
-					cb(null,urls);
+					num++;
+					console.log(num);
+					fs.appendFile('joker/lengxiaohua.txt',$(id).children().html(),function(err){
+						if(err){
+							throw err;
+						}
+					});
+					// urls.set(urlFragment,true);
+					cb(null,"done");
 				})
 	}
-}
+
 
